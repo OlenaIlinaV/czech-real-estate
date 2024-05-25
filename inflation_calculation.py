@@ -1,6 +1,3 @@
-import math
-import pprint
-
 # https://www.czso.cz/csu/czso/inflation_rate
 copied_inflation_cz = """2019	2.2	2.3	2.4	2.4	2.5	2.5	2.6	2.6	2.6	2.7	2.7	2.8
 2020	2.9	3.0	3.1	3.1	3.1	3.1	3.2	3.2	3.3	3.3	3.2	3.2
@@ -29,10 +26,13 @@ def parse_inflation(copied_text):
                 "inflation": inflation, # initial value in percents comparing to previous year
                 "inflation_index": 1 + float(inflation) / 100, # convert percents to index, will be overwritten further
             })
+    
+    # sort because then we need to get Jan 2019 as first value
+    data.sort(key=lambda x: x["date"])
 
     # recalculate index for 2019 comparing to the Jan 2019
-    # currently each month value holds inflation coparing to the same month of previous year, e.g. Aug 2019 is inflation comparing to Aug 2018.
-    jan2019_inflation = next(element for element in data if element["year"] == 2019 and element["month"] == 1)
+    # currently each month value holds inflation comparing to the same month of previous year, e.g. Aug 2019 is inflation comparing to Aug 2018.
+    jan2019_inflation = data[0]
     initial_jan2019_value = jan2019_inflation["inflation_index"]
     jan2019_inflation["inflation_index"] = 1 # set Jan 2019 to 1 to be a base value
 
@@ -48,14 +48,17 @@ def parse_inflation(copied_text):
     data_calculated_index = []
     for element in data_fixed2019:
         # inflation index for the same month and year lower than for current element
-        inflation_for_previous_months = [element2 for element2 in data_fixed2019 if element2["month"] == element["month"] and element2["year"] <= element["year"]]
-        
+        inflation_index = 1
+        for element2 in data_fixed2019:
+            if element2["month"] == element["month"] and element2["year"] <= element["year"]:
+                inflation_index *= element2["inflation_index"]
+
         data_calculated_index.append({
             "date": element["date"],
             "year": element["year"],
             "month": element["month"],
             "inflation": element["inflation"],
-            "inflation_index": round(math.prod(element2["inflation_index"] for element2 in inflation_for_previous_months) * 1000) / 1000,
+            "inflation_index": round(inflation_index * 1000) / 1000,
         })
 
     return data_calculated_index
